@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de fabricantes</title>
+    <style>
+        body{font-family:Arial,sans-serif;margin:0;padding:10px;background:#f5f5f5}
+        @media (min-width: 600px) { body { padding: 20px; } }
+        
+        .container{max-width:1200px;margin:0 auto;background:white;padding:15px;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+        @media (min-width: 600px) { .container { padding: 20px; } }
+
+        /* Cabecera Responsive Reestructurada */
+        .header-actions-top {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 15px;
+        }
+        .left-controls {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+        h1{text-align:center;color:#333;margin: 0; font-size: 24px;}
+        .export-import{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;width: 100%;}
+        
+        @media (min-width: 768px) {
+            .header-actions-top { flex-direction: row; justify-content: space-between; }
+            .left-controls { width: auto; }
+            .export-import { width: auto; justify-content: flex-end; }
+            h1 { font-size: 32px; }
+        }
+
+        .btn-action-top {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all .2s;
+            font-size: 13px;
+        }
+        .export-btn{background:#c8e6c9;border-color:#a5d6a7}
+        .export-btn:hover{background:#a5d6a7}
+        .import-btn{background:#ffe0b2;border-color:#ffcc80}
+        .import-btn:hover{background:#ffcc80}
+        .backup-btn{background:#b3e5fc;border-color:#81d4fa}
+        .backup-btn:hover{background:#81d4fa}
+
+        /* Formulario Modular Flex/Grid */
+        .form-row, .form-column{display:flex;flex-direction:column;margin-bottom:15px;gap:15px}
+        @media (min-width: 768px) {
+            .form-row, .form-column { flex-direction: row; }
+        }
+        .form-group, .column{flex:1; width: 100%; box-sizing: border-box;}
+        label{display:block;margin-bottom:5px;font-weight:700}
+        input,textarea{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}
+        textarea{resize:vertical;min-height:100px}
+        .buttons{display:flex;justify-content:space-between;margin-top:20px;gap:10px}
+        .btn{padding:10px 15px;border:none;border-radius:4px;cursor:pointer;font-weight:700}
+        .btn-primary{background:#4CAF50;color:white}
+        
+        .search-container{margin:20px 0}
+        .search-input{width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;margin-bottom:20px}
+        
+        /* Lista y Tarjetas de Fabricantes Adaptables */
+        .manufacturer-list{border-top:1px solid #ddd;margin-top:20px}
+        .manufacturer-item{padding:15px;border-bottom:1px solid #ddd;background:#f8f8f8;transition:all .2s;cursor:pointer}
+        .manufacturer-item:hover{background:#f0f0f0}
+        
+        .manufacturer-details{
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        @media (min-width: 768px) {
+            .manufacturer-details {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+        }
+        
+        .manufacturer-field{flex:1;min-width:180px;padding:5px;word-break:break-word}
+        .manufacturer-field-logo{width:60px;min-width:60px;display:flex;align-items:center;}
+        .manufacturer-field-expand { display: flex; align-items: center; justify-content: flex-end; }
+        
+        .manufacturer-field-access{display:flex;flex-direction:column;gap:10px;padding:10px 15px;background:#f5f5f5;border-bottom:1px solid #ddd;margin-top:5px;border-left:4px solid #ddd}
+        @media (min-width: 600px) { .manufacturer-field-access { flex-direction: row; flex-wrap: wrap; gap: 15px; } }
+        
+        .manufacturer-additional-info{display:none}
+        .manufacturer-observations{padding:15px;background:#f0f7fa;border-bottom:1px solid #ddd;white-space:pre-line;margin-top:5px;border-left:4px solid #b3e5fc;word-break:break-word}
+        .manufacturer-website{padding:10px 15px;background:#f5f5f5;border-bottom:1px solid #ddd;margin-top:5px;border-left:4px solid #ddd;word-break:break-all}
+        
+        .actions{display:flex;gap:15px;justify-content:flex-end;border-top:1px solid #eee;padding-top:10px;margin-top:5px}
+        @media (min-width: 768px) { .actions { border-top: none; padding-top: 0; margin-top: 0; } }
+        
+        .action-btn{background:none;border:none;cursor:pointer;font-size:18px;padding:5px;transition:all .2s}
+        .action-btn:hover{transform:scale(1.1)}
+        
+        .logo-preview,.logo-preview-mini{object-fit:contain}
+        .logo-preview{width:50px;height:50px}
+        .logo-preview-mini{width:40px;height:40px;border-radius:4px;border:1px solid #ddd;padding:2px;background:white}
+        .file-download{color:blue;text-decoration:underline;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+        .file-download:hover{color:#0056b3}
+        .web-link{color:#2196F3;text-decoration:underline;cursor:pointer}
+        .field-label{font-weight:700;color:#555;margin-right:5px;font-size:.9em}
+        .field-value{color:#333}
+        
+        .toggle-form-btn, .toggle-history-btn{background:none;border:none;font-size:24px;cursor:pointer;color:#555;padding:5px;border-radius:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;transition:all .2s;border: 1px solid #ddd;}
+        .toggle-form-btn:hover, .toggle-history-btn:hover{background:#f0f0f0;color:#000}
+        
+        .form-container{transition:max-height 0.3s ease-in-out,opacity 0.3s ease-in-out,margin 0.3s ease-in-out;max-height:2000px;opacity:1;overflow:hidden;margin-bottom:20px}
+        .form-container.hidden{max-height:0;opacity:0;margin:0}
+        .expand-icon{font-size:18px;transition:transform 0.2s ease}
+        .rotate{transform:rotate(90deg)}
+        
+        /* Botones de Garantías Responsives */
+        .warranty-buttons-container{margin:20px 0}
+        .warranty-buttons-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:10px}
+        .warranty-btn{padding:12px 10px;background:#e3f2fd;color:#0d47a1;border:1px solid #bbdefb;border-radius:4px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;transition:all .2s;font-size:13px;display:flex;align-items:center;justify-content:center}
+        .warranty-btn:hover{background:#bbdefb;transform:translateY(-2px);box-shadow:0 2px 5px rgba(0,0,0,.1)}
+
+        /* Historial de actualizaciones */
+        .update-history-modal {
+            display: none;position: fixed;z-index: 100;left: 0;top: 0;width: 100%;height: 100%;overflow: auto;background-color: rgba(0,0,0,0.4);
+        }
+        .update-history-content {
+            background-color: #fefefe;margin: 10% auto;padding: 20px;border: 1px solid #888;width: 90%;max-width: 600px;border-radius: 8px;position: relative;box-sizing: border-box;
+        }
+        .close-button {color: #aaa;float: right;font-size: 28px;font-weight: bold;cursor: pointer;}
+        .close-button:hover{color: black;}
+        .update-history-content h2 {text-align: center;color: #333;margin-bottom: 20px;}
+        .update-history-content ul {list-style-type: none;padding: 0;}
+        .update-history-content ul li {background: #e9e9e9;margin-bottom: 10px;padding: 10px;border-left: 5px solid #4CAF50;border-radius: 4px;}
+        .update-history-content ul li strong {display: block;margin-bottom: 5px;color: #333;}
+        .history-section-title {margin-top: 20px;margin-bottom: 10px;color: #007bff;font-weight: bold;border-bottom: 1px solid #007bff;padding-bottom: 5px;}
+
+        /* Acceso, bloqueo y configuración */
+        .uh{display:none!important}
+        .app-hidden{display:none}
+        .overlay{position:fixed;inset:0;background:#f5f5f5;z-index:200;display:flex;align-items:center;justify-content:center;padding:15px;overflow:auto}
+        .auth-card{background:#fff;max-width:420px;width:100%;padding:24px;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,.15);box-sizing:border-box}
+        .auth-card h2{margin-top:0;text-align:center;color:#333}
+        .auth-card label{margin-top:12px}
+        .auth-card .btn{margin-top:16px}
+        .auth-tabs{display:flex;gap:6px;margin-bottom:10px}
+        .auth-tabs button{flex:1;padding:8px;border:1px solid #ddd;background:#f0f0f0;border-radius:4px;cursor:pointer;font-weight:700}
+        .auth-tabs button.active{background:#4CAF50;color:#fff;border-color:#4CAF50}
+        .auth-hint{font-size:13px;color:#0d47a1;margin-bottom:6px}
+        .err{color:#c62828;font-size:13px;margin-top:8px;min-height:1em}
+        .muted{font-size:12px;color:#777}
+        .warn{font-size:12px;color:#8a5a00;background:#fff8e1;border-left:4px solid #ffb300;padding:8px;margin:12px 0 0}
+        .link-btn{background:none;border:none;color:#2196F3;text-decoration:underline;cursor:pointer;margin-top:12px;font-size:13px;padding:0}
+        .user-bar{text-align:right;font-size:12px;color:#777;margin:-10px 0 10px}
+        .chk{display:flex;align-items:center;gap:8px;font-weight:400;font-size:13px}
+        .chk input{width:auto}
+        .user-li{display:flex;justify-content:space-between;align-items:center;gap:8px;word-break:break-all}
+    </style>
+</head>
+<body>
+    <div class="container app-hidden" id="appContainer">
+        <div class="header-actions-top">
+            <div class="left-controls">
+                <button id="toggleFormBtn" class="toggle-form-btn" title="Mostrar formulario">📋</button>
+                <button id="toggleHistoryBtn" class="toggle-history-btn" title="Historial de Actividad">🕒</button>
+                <button id="settingsBtn" class="toggle-history-btn uh" title="Configuración">⚙️</button>
+                <button id="logoutBtn" class="toggle-history-btn" title="Cerrar sesión">🚪</button>
+            </div>
+            
+            <h1>Gestión de fabricantes</h1>
+            
+            <div class="export-import">
+                <button id="backupBtn" class="btn-action-top backup-btn">RESPALDO FB</button>
+                <button id="exportBtn" class="btn-action-top export-btn">EXPORTAR</button>
+                <button id="importBtn" class="btn-action-top import-btn">IMPORTAR</button>
+                <input type="file" id="importFile" style="display:none" accept=".csv">
+            </div>
+        </div>
+
+        <div class="user-bar" id="userInfo"></div>
+        <div id="formContainer" class="form-container hidden">
+            <form id="manufacturerForm">
+                <div class="form-row">
+                    <div class="form-group"><label for="manufacturer">Fabricante</label><input type="text" id="manufacturer" name="manufacturer" required></div>
+                    <div class="form-group"><label for="phone">Teléfono</label><input type="tel" id="phone" name="phone"></div>
+                    <div class="form-group"><label for="email">Email</label><input type="email" id="email" name="email"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="website">Web</label><input type="url" id="website" name="website"></div>
+                    <div class="form-group"><label for="username">Usuario</label><input type="text" id="username" name="username"></div>
+                    <div class="form-group"><label for="password">Contraseña</label><input type="text" id="password" name="password" autocomplete="off"></div>
+                </div>
+                <div class="form-column">
+                    <div class="column">
+                        <label for="observations">Observaciones</label><textarea id="observations" name="observations"></textarea>
+                        <div style="margin-top:15px;"><label for="fileUrl">Enlace de descarga</label><input type="url" id="fileUrl" name="fileUrl" placeholder="https://ejemplo.com/archivo.pdf"></div>
+                    </div>
+                    <div class="column">
+                        <div class="form-group"><label for="logo">Logo</label><input type="file" id="logo" name="logo" accept="image/*"><div id="logoPreview" style="margin-top:10px"></div></div>
+                    </div>
+                </div>
+                <div class="buttons">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <button type="reset" class="btn">Limpiar</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="warranty-buttons-container">
+            <div class="warranty-buttons-row">
+                <a href="https://www.dmi.es/servicios/garantia-de-productos/" target="_blank" class="warranty-btn">DMI</a>
+                <a href="https://www.infortisa.com/garantias/" target="_blank" class="warranty-btn">INFORTISA</a>
+                <a href="https://www.globomatik.com/garantias" target="_blank" class="warranty-btn">GLOBOMATIK</a>
+                <a href="https://asm.tdsynnex.eu/ASM/Pages/Warranty/Warranty.aspx" target="_blank" class="warranty-btn">TD SINNEX</a>
+            </div>
+            <div class="warranty-buttons-row">
+                <a href="https://b2b.eldisser.com/InstruccionesSat" target="_blank" class="warranty-btn">ELDISSER</a>
+                <a href="https://b2b.esprinet.com/warranties" target="_blank" class="warranty-btn">ESPRINET</a>
+                <a href="https://tienda.inforpor.com/user/postventa/instrucciones" target="_blank" class="warranty-btn">INFORPOR</a>
+                <a href="https://www.depau.es/rma/garantias" target="_blank" class="warranty-btn">DEPAU</a>
+            </div>
+        </div>
+        
+        <div class="search-container"><input type="text" id="searchInput" class="search-input" placeholder="Buscar fabricantes..."></div>
+        <div id="manufacturerList" class="manufacturer-list"></div>
+    </div>
+
+    <div id="updateHistoryModal" class="update-history-modal">
+        <div class="update-history-content">
+            <span class="close-button">&times;</span>
+            <h2>Historial de Actividad</h2>
+            <div id="historyContent"></div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="overlay"><div class="auth-card"><p style="text-align:center">Cargando…</p></div></div>
+
+    <div id="authOverlay" class="overlay uh"><div class="auth-card">
+        <h2>Gestión de fabricantes</h2>
+        <div class="auth-tabs"><button type="button" id="tabLogin" class="active">Entrar</button><button type="button" id="tabRegister">Crear cuenta</button></div>
+        <div id="authHint" class="auth-hint"></div>
+        <form id="authForm">
+            <label for="authEmail">Email</label><input type="email" id="authEmail" required autocomplete="username">
+            <label for="authPass">Contraseña</label><input type="password" id="authPass" required autocomplete="current-password">
+            <div id="authPass2Row" class="uh"><label for="authPass2">Repite la contraseña</label><input type="password" id="authPass2" autocomplete="new-password"></div>
+            <div id="authError" class="err"></div>
+            <button class="btn btn-primary" id="authSubmit" style="width:100%">Entrar</button>
+            <div style="text-align:center"><button type="button" class="link-btn" id="resetPass">¿Olvidaste la contraseña?</button></div>
+        </form>
+    </div></div>
+
+    <div id="unlockOverlay" class="overlay uh"><div class="auth-card">
+        <h2>🔐 Clave de cifrado</h2>
+        <p id="unlockMsg">Introduce la clave de cifrado para descifrar los datos.</p>
+        <form id="unlockForm">
+            <input type="password" id="unlockPass" required autocomplete="off">
+            <label class="chk"><input type="checkbox" id="unlockRemember"> Mantener desbloqueado en este dispositivo</label>
+            <div id="unlockError" class="err"></div>
+            <button class="btn btn-primary" style="width:100%">Desbloquear</button>
+        </form>
+        <div style="text-align:center"><button type="button" class="link-btn" id="unlockLogout">Cerrar sesión</button></div>
+    </div></div>
+
+    <div id="blockOverlay" class="overlay uh"><div class="auth-card">
+        <h2 id="blockTitle"></h2>
+        <p id="blockMsg"></p>
+        <button class="btn btn-primary" id="blockRetry">Reintentar</button>
+        <button class="btn" id="blockLogout">Cerrar sesión</button>
+    </div></div>
+
+    <div id="settingsModal" class="update-history-modal">
+        <div class="update-history-content">
+            <span class="close-button" id="settingsClose">&times;</span>
+            <h2>⚙️ Configuración</h2>
+            <div id="usersSection">
+                <h3 class="history-section-title">Usuarios con acceso</h3>
+                <p class="muted">Master: <strong id="masterEmail"></strong></p>
+                <ul id="usersList"></ul>
+                <form id="addUserForm" style="display:flex;gap:8px">
+                    <input type="email" id="newUserEmail" placeholder="email@ejemplo.com" required>
+                    <button class="btn btn-primary" style="white-space:nowrap">Dar acceso</button>
+                </form>
+                <p class="muted">La persona debe crear su cuenta en la pantalla de acceso con ese mismo email. Para retirar el acceso por completo, quita el usuario y cambia después la clave de cifrado.</p>
+            </div>
+            <h3 class="history-section-title" id="keyTitle"></h3>
+            <form id="keyForm">
+                <div id="curKeyRow"><label for="curKey">Clave actual</label><input type="password" id="curKey" autocomplete="off"></div>
+                <label for="newKey">Nueva clave (mínimo 10 caracteres)</label><input type="password" id="newKey" autocomplete="new-password">
+                <label for="newKey2">Repite la nueva clave</label><input type="password" id="newKey2" autocomplete="new-password">
+                <p class="warn">Si pierdes la clave, los datos no se pueden recuperar (ni siquiera el master). Comunica la clave al resto de usuarios por un canal seguro. Al cambiarla, los demás tendrán que introducir la nueva.</p>
+                <div id="keyError" class="err"></div>
+                <button class="btn btn-primary" id="keySubmit">Guardar clave</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, getDoc, getDocs, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMMs4frAQxoOw1R3fO62iarP95LdTqvSA",
+            authDomain: "garantias-545fb.firebaseapp.com",
+            projectId: "garantias-545fb",
+            storageBucket: "garantias-545fb.firebasestorage.app",
+            messagingSenderId: "1091871508301",
+            appId: "1:1091871508301:web:5689c8774e1765cb225904"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const manufacturersRef = collection(db, "manufacturers");
+        const backupRef = collection(db, "manufacturers_backup");
+        const allowedRef = collection(db, "allowed");
+        const cfgRef = doc(db, "config", "main");
+        const statusRef = doc(db, "setup", "status");
+
+        let manufacturers = [];
+        let isSearchActive = false;
+        let filteredManufacturers = [];
+
+        // Estado de sesión y cifrado
+        let currentUser = null, isMaster = false, cfg = null;
+        let cryptoKey = null, keyVersion = null;
+        let unsubData = null, unsubCfg = null, snapSeq = 0;
+
+        const form = document.getElementById('manufacturerForm');
+        const formContainer = document.getElementById('formContainer');
+        const toggleFormBtn = document.getElementById('toggleFormBtn');
+        const toggleHistoryBtn = document.getElementById('toggleHistoryBtn'); 
+        const updateHistoryModal = document.getElementById('updateHistoryModal');
+        const closeHistoryBtn = updateHistoryModal.querySelector('.close-button');
+        const historyContentDiv = document.getElementById('historyContent');
+        const manufacturerList = document.getElementById('manufacturerList');
+        const searchInput = document.getElementById('searchInput');
+        const logoInput = document.getElementById('logo');
+        const logoPreview = document.getElementById('logoPreview');
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const importFile = document.getElementById('importFile');
+        const backupBtn = document.getElementById('backupBtn');
+
+        // ---------- Utilidades ----------
+        const $ = id => document.getElementById(id);
+        const show = (id, v = true) => $(id).classList.toggle('uh', !v);
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        function sanitizeForRender(m) {
+            const o = { id: esc(m.id) };
+            ['manufacturer','phone','email','website','username','password','observations'].forEach(f => o[f] = esc(m[f]));
+            o.fileUrl = /^https?:\/\//i.test(m.fileUrl || '') ? esc(m.fileUrl) : '';
+            o.logo = /^data:image\//i.test(m.logo || '') ? esc(m.logo) : '';
+            return o;
+        }
+
+        // ---------- Cifrado (AES-256-GCM + PBKDF2, todo en el navegador) ----------
+        const FIELDS = ['manufacturer','phone','email','website','username','password','observations','fileUrl','logo'];
+        const CHECK = 'garantias-v1', ITER = 600000;
+        const te = new TextEncoder(), td = new TextDecoder();
+        const b64 = buf => { const a = new Uint8Array(buf); let s = ''; for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000)); return btoa(s); };
+        const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+        async function deriveKey(pass, salt) {
+            const base = await crypto.subtle.importKey('raw', te.encode(pass), 'PBKDF2', false, ['deriveKey']);
+            return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: ITER, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        }
+        async function encryptJSON(key, obj) {
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(obj)));
+            return { iv: b64(iv), data: b64(ct) };
+        }
+        async function decryptJSON(key, r) {
+            const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(r.iv) }, key, unb64(r.data));
+            return JSON.parse(td.decode(pt));
+        }
+        async function verifyKey(key) {
+            const o = await decryptJSON(key, cfg.verifier);
+            if (o.check !== CHECK) throw new Error('bad');
+        }
+        async function buildDoc(m) {
+            const plain = {};
+            FIELDS.forEach(f => plain[f] = m[f] || '');
+            const e = await encryptJSON(cryptoKey, plain);
+            return { ...e, kv: keyVersion, createdAt: m.createdAt, updatedAt: m.updatedAt, updatedBy: currentUser.email };
+        }
+
+        // Clave "recordada" en este dispositivo: CryptoKey no exportable en IndexedDB
+        const idbOpen = () => new Promise((res, rej) => { const r = indexedDB.open('garantias-keys', 1); r.onupgradeneeded = () => r.result.createObjectStore('k'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+        async function idb(mode, fn) { const d = await idbOpen(); return new Promise((res, rej) => { const t = d.transaction('k', mode); const q = fn(t.objectStore('k')); t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); }
+        const keyGet = () => idb('readonly', s => s.get('key')).catch(() => null);
+        const keySet = v => idb('readwrite', s => s.put(v, 'key')).catch(() => {});
+        const keyDel = () => idb('readwrite', s => s.delete('key')).catch(() => {});
+
+        // ---------- Pantallas ----------
+        function showScreen(name) {
+            ['auth', 'unlock', 'block', 'loading'].forEach(n => show(n + 'Overlay', false));
+            $('appContainer').classList.toggle('app-hidden', name !== 'app');
+            if (name !== 'app' && name !== 'none') show(name + 'Overlay');
+        }
+        function showBlock(title, msg) {
+            $('blockTitle').textContent = title;
+            $('blockMsg').textContent = msg;
+            showScreen('block');
+        }
+        $('blockRetry').addEventListener('click', () => location.reload());
+        $('blockLogout').addEventListener('click', logout);
+        $('unlockLogout').addEventListener('click', logout);
+        $('logoutBtn').addEventListener('click', logout);
+        async function logout() { await keyDel(); await signOut(auth); }
+
+        // ---------- Acceso (email + contraseña) ----------
+        const AUTH_ERR = {
+            'auth/invalid-credential': 'Email o contraseña incorrectos.',
+            'auth/wrong-password': 'Email o contraseña incorrectos.',
+            'auth/user-not-found': 'Email o contraseña incorrectos.',
+            'auth/email-already-in-use': 'Ese email ya tiene cuenta. Usa "Entrar".',
+            'auth/weak-password': 'La contraseña es demasiado débil.',
+            'auth/invalid-email': 'El email no es válido.',
+            'auth/too-many-requests': 'Demasiados intentos. Espera un momento.',
+            'auth/network-request-failed': 'Sin conexión con Firebase.',
+            'auth/operation-not-allowed': 'Activa el acceso con email/contraseña en Firebase Authentication.'
+        };
+        let authMode = 'login';
+        function setAuthMode(m) {
+            authMode = m;
+            const r = m === 'register';
+            $('tabLogin').classList.toggle('active', !r);
+            $('tabRegister').classList.toggle('active', r);
+            show('authPass2Row', r);
+            $('authSubmit').textContent = r ? 'Crear cuenta' : 'Entrar';
+            $('authPass').autocomplete = r ? 'new-password' : 'current-password';
+            $('authError').textContent = '';
+        }
+        $('tabLogin').addEventListener('click', () => setAuthMode('login'));
+        $('tabRegister').addEventListener('click', () => setAuthMode('register'));
+        async function refreshAuthHint() {
+            try {
+                const s = await getDoc(statusRef);
+                $('authHint').textContent = s.exists() ? '' : 'Aún no hay ninguna cuenta: la primera que crees será la cuenta master (administradora).';
+                if (!s.exists()) setAuthMode('register');
+            } catch (e) { /* sin pista */ }
+        }
+        $('authForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const em = $('authEmail').value.trim(), pw = $('authPass').value, err = $('authError');
+            err.textContent = '';
+            try {
+                if (authMode === 'register') {
+                    if (pw.length < 8) return err.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+                    if (pw !== $('authPass2').value) return err.textContent = 'Las contraseñas no coinciden.';
+                    await createUserWithEmailAndPassword(auth, em, pw);
+                } else {
+                    await signInWithEmailAndPassword(auth, em, pw);
+                }
+            } catch (ex) { err.textContent = AUTH_ERR[ex.code] || ('Error: ' + ex.code); }
+        });
+        $('resetPass').addEventListener('click', async () => {
+            const em = $('authEmail').value.trim(), err = $('authError');
+            if (!em) return err.textContent = 'Escribe tu email y vuelve a pulsar.';
+            try { await sendPasswordResetEmail(auth, em); err.style.color = '#2e7d32'; err.textContent = 'Si el email existe, recibirás un enlace para restablecer la contraseña.'; }
+            catch (ex) { err.style.color = ''; err.textContent = AUTH_ERR[ex.code] || ('Error: ' + ex.code); }
+        });
+
+        // ---------- Sesión ----------
+        onAuthStateChanged(auth, user => {
+            teardown();
+            if (!user) { currentUser = null; isMaster = false; showScreen('auth'); refreshAuthHint(); return; }
+            currentUser = user;
+            startSession(user);
+        });
+
+        function teardown() {
+            if (unsubData) unsubData();
+            if (unsubCfg) unsubCfg();
+            unsubData = unsubCfg = null;
+            cryptoKey = null; keyVersion = null; cfg = null; manufacturers = [];
+            settingsModal.style.display = 'none';
+            renderManufacturers();
+        }
+
+        async function startSession(user) {
+            showScreen('loading');
+            try {
+                let st = await getDoc(statusRef);
+                if (!st.exists()) {
+                    // El primer usuario autenticado se convierte en master (las reglas solo permiten crearlo una vez)
+                    try { await setDoc(statusRef, { masterUid: user.uid, masterEmail: (user.email || '').toLowerCase(), createdAt: new Date().toISOString() }); } catch (e) { /* otro llegó antes */ }
+                    st = await getDoc(statusRef);
+                }
+                isMaster = st.exists() && st.data().masterUid === user.uid;
+                $('userInfo').textContent = `${user.email} · ${isMaster ? 'Master' : 'Usuario'}`;
+                show('settingsBtn', isMaster);
+                unsubCfg = onSnapshot(cfgRef, handleCfg, err => {
+                    if (err.code === 'permission-denied') showBlock('Sin acceso', `La cuenta ${user.email} todavía no tiene acceso. Pide al usuario master que te dé acceso con este email y pulsa Reintentar.`);
+                    else console.error(err);
+                });
+            } catch (err) {
+                console.error(err);
+                showBlock('Error de conexión', 'No se pudo conectar con la base de datos. Comprueba que las reglas de Firestore están publicadas y vuelve a intentarlo.');
+            }
+        }
+
+        async function handleCfg(snap) {
+            if (!snap.exists()) {
+                cfg = null;
+                stopData();
+                if (isMaster) { showScreen('none'); openSettings(true); }
+                else showBlock('Configuración pendiente', 'El usuario master aún no ha creado la clave de cifrado. Vuelve a intentarlo más tarde.');
+                return;
+            }
+            cfg = snap.data();
+            if (cryptoKey && keyVersion === cfg.keyVersion) {
+                if (!unsubData) startData();
+                showScreen('app');
+                return;
+            }
+            if (cryptoKey) stopData(); // el master cambió la clave
+            const st = await keyGet();
+            if (st && st.uid === currentUser.uid && st.kv === cfg.keyVersion) {
+                try { await verifyKey(st.key); setKey(st.key, cfg.keyVersion); return; } catch (e) { await keyDel(); }
+            }
+            $('unlockMsg').textContent = 'Introduce la clave de cifrado para descifrar los datos.';
+            $('unlockPass').value = ''; $('unlockError').textContent = '';
+            showScreen('unlock');
+        }
+
+        function setKey(key, kv) {
+            cryptoKey = key; keyVersion = kv;
+            if (!unsubData) startData();
+            showScreen('app');
+        }
+        function stopData() {
+            if (unsubData) unsubData();
+            unsubData = null; cryptoKey = null; keyVersion = null; manufacturers = [];
+            renderManufacturers();
+        }
+
+        $('unlockForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const btn = e.submitter, err = $('unlockError'); err.textContent = '';
+            if (btn) btn.disabled = true;
+            try {
+                const key = await deriveKey($('unlockPass').value, unb64(cfg.salt));
+                try { await verifyKey(key); } catch (x) { err.textContent = 'Clave incorrecta.'; return; }
+                if ($('unlockRemember').checked) await keySet({ uid: currentUser.uid, kv: cfg.keyVersion, key }); else await keyDel();
+                $('unlockPass').value = '';
+                setKey(key, cfg.keyVersion);
+            } finally { if (btn) btn.disabled = false; }
+        });
+
+        // ---------- Datos en tiempo real (descifrados en el navegador) ----------
+        function startData() {
+            unsubData = onSnapshot(manufacturersRef, async snap => {
+                const seq = ++snapSeq, key = cryptoKey, list = [];
+                for (const d of snap.docs) {
+                    const raw = d.data();
+                    const meta = { id: d.id, createdAt: raw.createdAt, updatedAt: raw.updatedAt, updatedBy: raw.updatedBy, raw };
+                    try { list.push({ ...(await decryptJSON(key, raw)), ...meta }); }
+                    catch (e) { list.push({ ...meta, manufacturer: '⚠ Registro no descifrable (clave distinta)', broken: true }); }
+                }
+                if (seq !== snapSeq || key !== cryptoKey) return;
+                list.sort((a, b) => (a.manufacturer || '').localeCompare(b.manufacturer || '', 'es', { sensitivity: 'base' }));
+                manufacturers = list;
+                if (isSearchActive && searchInput.value.trim()) searchInput.dispatchEvent(new Event('input'));
+                else renderManufacturers();
+            }, err => console.error('Error leyendo datos:', err));
+        }
+
+        // ---------- Configuración (solo master) ----------
+        const settingsModal = $('settingsModal');
+        let settingsForced = false;
+        function openSettings(forced = false) {
+            settingsForced = forced;
+            show('settingsClose', !forced);
+            show('usersSection', !forced);
+            show('curKeyRow', !!cfg);
+            $('keyTitle').textContent = cfg ? 'Cambiar clave de cifrado' : 'Crear clave de cifrado';
+            $('masterEmail').textContent = currentUser.email;
+            $('keyError').textContent = '';
+            settingsModal.style.display = 'block';
+            if (!forced) loadUsers();
+        }
+        $('settingsBtn').addEventListener('click', () => openSettings(false));
+        $('settingsClose').addEventListener('click', () => { settingsModal.style.display = 'none'; });
+        window.addEventListener('click', ev => { if (ev.target === settingsModal && !settingsForced) settingsModal.style.display = 'none'; });
+
+        async function loadUsers() {
+            const ul = $('usersList');
+            try {
+                const s = await getDocs(allowedRef);
+                const emails = s.docs.map(d => d.id).sort();
+                ul.innerHTML = emails.length ? '' : '<li>Aún no has dado acceso a nadie.</li>';
+                emails.forEach(em => {
+                    const li = document.createElement('li');
+                    li.className = 'user-li';
+                    li.innerHTML = `<span>${esc(em)}</span><button class="action-btn" title="Quitar acceso">🗑️</button>`;
+                    li.querySelector('button').addEventListener('click', async () => {
+                        if (!confirm(`¿Quitar el acceso a ${em}?`)) return;
+                        try { await deleteDoc(doc(db, 'allowed', em)); loadUsers(); } catch (e) { alert('No se pudo quitar el acceso.'); }
+                    });
+                    ul.appendChild(li);
+                });
+            } catch (e) { ul.innerHTML = '<li>No se pudo cargar la lista de usuarios.</li>'; }
+        }
+        $('addUserForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const em = $('newUserEmail').value.trim().toLowerCase();
+            if (!em) return;
+            if (em === currentUser.email.toLowerCase()) return alert('Ese es tu propio email (ya eres master).');
+            try {
+                await setDoc(doc(db, 'allowed', em), { email: em, addedAt: new Date().toISOString(), addedBy: currentUser.email });
+                $('newUserEmail').value = '';
+                loadUsers();
+            } catch (ex) { alert('No se pudo dar acceso.'); }
+        });
+
+        async function createKey(pass) {
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const key = await deriveKey(pass, salt);
+            const data = { salt: b64(salt), verifier: await encryptJSON(key, { check: CHECK }), keyVersion: 1, updatedAt: new Date().toISOString(), updatedBy: currentUser.email };
+            cryptoKey = key; keyVersion = 1; cfg = data; // antes de escribir, para que el listener no bloquee al master
+            try { await setDoc(cfgRef, data); }
+            catch (e) { cryptoKey = null; keyVersion = null; cfg = null; throw e; }
+        }
+
+        async function changeKey(currentPass, newPass) {
+            const oldKey = await deriveKey(currentPass, unb64(cfg.salt));
+            try { await verifyKey(oldKey); } catch (e) { throw new Error('La clave actual no es correcta.'); }
+            const snap = await getDocs(manufacturersRef);
+            if (snap.size + 1 > 500) throw new Error('Hay demasiados registros para recifrar de una sola vez (máx. 499).');
+            const newSalt = crypto.getRandomValues(new Uint8Array(16));
+            const newKey = await deriveKey(newPass, newSalt);
+            const newKv = cfg.keyVersion + 1, prevKey = cryptoKey, prevKv = keyVersion;
+            const verifier = await encryptJSON(newKey, { check: CHECK });
+            cryptoKey = newKey; keyVersion = newKv;
+            try {
+                await runTransaction(db, async tx => {
+                    const cs = await tx.get(cfgRef);
+                    if (!cs.exists() || cs.data().keyVersion !== prevKv) throw new Error('La clave cambió mientras tanto. Recarga la página.');
+                    const docs = await Promise.all(snap.docs.map(d => tx.get(d.ref)));
+                    const updates = [];
+                    for (const d of docs) {
+                        if (!d.exists()) continue;
+                        let plain;
+                        try { plain = await decryptJSON(oldKey, d.data()); }
+                        catch (e) { throw new Error('Hay registros que no se pueden descifrar con la clave actual. Elimínalos antes de cambiar la clave.'); }
+                        updates.push([d.ref, { ...(await encryptJSON(newKey, plain)), kv: newKv }]);
+                    }
+                    updates.forEach(([ref, data]) => tx.update(ref, data));
+                    tx.set(cfgRef, { salt: b64(newSalt), verifier, keyVersion: newKv, updatedAt: new Date().toISOString(), updatedBy: currentUser.email });
+                });
+            } catch (e) { cryptoKey = prevKey; keyVersion = prevKv; throw e; }
+            if (await keyGet()) await keySet({ uid: currentUser.uid, kv: newKv, key: newKey });
+        }
+
+        $('keyForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const err = $('keyError'); err.textContent = '';
+            const n = $('newKey').value, r = $('newKey2').value, changing = !!cfg;
+            if (n.length < 10) return err.textContent = 'La clave debe tener al menos 10 caracteres.';
+            if (n !== r) return err.textContent = 'Las claves no coinciden.';
+            if (!confirm('Si pierdes esta clave, los datos no se podrán recuperar (ni siquiera el master). ¿Continuar?')) return;
+            const btn = $('keySubmit'); btn.disabled = true; btn.textContent = 'Procesando…';
+            try {
+                if (changing) await changeKey($('curKey').value, n); else await createKey(n);
+                ['curKey', 'newKey', 'newKey2'].forEach(i => $(i).value = '');
+                settingsForced = false; settingsModal.style.display = 'none';
+                alert(changing ? 'Clave cambiada y datos recifrados. El resto de usuarios deberán introducir la nueva clave.' : 'Clave de cifrado creada.');
+            } catch (ex) { err.textContent = ex.message || 'No se pudo guardar la clave.'; }
+            finally { btn.disabled = false; btn.textContent = 'Guardar clave'; }
+        });
+
+        toggleFormBtn.addEventListener('click', function() {
+            formContainer.classList.toggle('hidden');
+            toggleFormBtn.textContent = formContainer.classList.contains('hidden') ? '📋' : '📝';
+            toggleFormBtn.title = formContainer.classList.contains('hidden') ? 'Mostrar formulario' : 'Ocultar formulario';
+        });
+
+        toggleHistoryBtn.addEventListener('click', function() {
+            displayUpdateHistory();
+            updateHistoryModal.style.display = 'block';
+        });
+
+        closeHistoryBtn.addEventListener('click', function() {
+            updateHistoryModal.style.display = 'none';
+        });
+
+        window.addEventListener('click', function(event) {
+            if (event.target == updateHistoryModal) {
+                updateHistoryModal.style.display = 'none';
+            }
+        });
+
+        logoInput.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    logoPreview.innerHTML = `<img src="${e.target.result}" class="logo-preview" alt="Vista previa del logo">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function renderManufacturers(manufacturersToRender = manufacturers) {
+            manufacturerList.innerHTML = '';
+            isSearchActive = manufacturersToRender !== manufacturers;
+            if (isSearchActive) filteredManufacturers = manufacturersToRender;
+
+            manufacturersToRender.forEach((mRaw) => {
+                const m = sanitizeForRender(mRaw);
+                const manufacturerContainer = document.createElement('div');
+                manufacturerContainer.dataset.id = m.id;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'manufacturer-item';
+
+                let logoHTML = '<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:#ccc">📷</div>';
+                if (m.logo) {
+                    logoHTML = `<img src="${m.logo}" class="logo-preview-mini" alt="Logo de ${m.manufacturer}">`;
+                }
+
+                itemDiv.innerHTML = `
+                    <div class="manufacturer-details">
+                        <div class="manufacturer-field-logo">${logoHTML}</div>
+                        <div class="manufacturer-field">
+                            <span class="field-label">Fabricante:</span>
+                            <span class="field-value"><strong>${m.manufacturer}</strong></span>
+                        </div>
+                        <div class="manufacturer-field">
+                            <span class="field-label">Teléfono:</span>
+                            <span class="field-value">${m.phone || 'N/A'}</span>
+                        </div>
+                        <div class="manufacturer-field">
+                            <span class="field-label">Email:</span>
+                            <span class="field-value">${m.email || 'N/A'}</span>
+                        </div>
+                        <div class="manufacturer-field-expand">
+                            <span class="expand-icon">▶</span>
+                        </div>
+                        <div class="actions">
+                            <button class="action-btn edit-btn" data-id="${m.id}" title="Editar">✏️</button>
+                            <button class="action-btn delete-btn" data-id="${m.id}" title="Eliminar">🗑️</button>
+                        </div>
+                    </div>
+                `;
+                manufacturerContainer.appendChild(itemDiv);
+
+                const additionalInfo = document.createElement('div');
+                additionalInfo.className = 'manufacturer-additional-info';
+
+                if (m.username || m.password || m.fileUrl) {
+                    const accessDiv = document.createElement('div');
+                    accessDiv.className = 'manufacturer-field-access';
+                    let accessHTML = '';
+                    if (m.username) accessHTML += `<div class="access-item"><span class="field-label">Usuario:</span><span class="field-value">${m.username}</span></div>`;
+                    if (m.password) accessHTML += `<div class="access-item"><span class="field-label">Contraseña:</span><span class="field-value">${m.password}</span></div>`;
+                    if (m.fileUrl) {
+                        const fileHTML = `<a href="${m.fileUrl}" target="_blank" class="file-download">>>Descargar<<</a>`;
+                        accessHTML += `<div class="access-item"><span class="field-label">Archivo:</span><span class="field-value">${fileHTML}</span></div>`;
+                    }
+                    accessDiv.innerHTML = accessHTML;
+                    additionalInfo.appendChild(accessDiv);
+                }
+
+                if (m.website) {
+                    const webDiv = document.createElement('div');
+                    webDiv.className = 'manufacturer-website';
+                    let websiteDisplay = m.website;
+                    if (m.website.startsWith('http://') || m.website.startsWith('https://')) {
+                        websiteDisplay = `<a href="${m.website}" target="_blank" class="web-link">${m.website}</a>`;
+                    }
+                    webDiv.innerHTML = `<span class="field-label">Web:</span> <span class="field-value">${websiteDisplay}</span>`;
+                    additionalInfo.appendChild(webDiv);
+                }
+
+                if (m.observations) {
+                    const obsDiv = document.createElement('div');
+                    obsDiv.className = 'manufacturer-observations';
+                    const processedObservations = m.observations.replace(/\n/g, '<br>');
+                    obsDiv.innerHTML = processedObservations;
+                    additionalInfo.appendChild(obsDiv);
+                }
+                manufacturerContainer.appendChild(additionalInfo);
+                manufacturerList.appendChild(manufacturerContainer);
+            });
+
+            document.querySelectorAll('.manufacturer-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    if (e.target.closest('.edit-btn') || e.target.closest('.delete-btn') || e.target.closest('.file-download') || e.target.closest('.web-link')) return;
+                    const additionalInfo = this.nextElementSibling;
+                    const expandIcon = this.querySelector('.expand-icon');
+                    if (additionalInfo) {
+                        additionalInfo.style.display = additionalInfo.style.display === 'block' ? 'none' : 'block';
+                        if (expandIcon) expandIcon.classList.toggle('rotate');
+                    }
+                });
+            });
+
+            document.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', handleEdit));
+            document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', handleDelete));
+        }
+
+        searchInput.addEventListener('input', e => {
+            const searchTerm = e.target.value.toLowerCase();
+            if (!searchTerm) return renderManufacturers();
+            const filtered = manufacturers.filter(m =>
+                (m.manufacturer && m.manufacturer.toLowerCase().includes(searchTerm)) ||
+                (m.email && m.email.toLowerCase().includes(searchTerm)) ||
+                (m.phone && m.phone.toLowerCase().includes(searchTerm)) ||
+                (m.website && m.website.toLowerCase().includes(searchTerm)) ||
+                (m.username && m.username.toLowerCase().includes(searchTerm)) ||
+                (m.observations && m.observations.toLowerCase().includes(searchTerm))
+            );
+            renderManufacturers(filtered);
+        });
+
+        const readFileAsDataURL = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!cryptoKey) return alert('Introduce primero la clave de cifrado.');
+            const editId = form.dataset.editId;
+            const m = {};
+            FIELDS.filter(f => f !== 'logo').forEach(f => m[f] = document.getElementById(f).value);
+
+            try {
+                const logoFile = document.getElementById('logo').files[0];
+                if (logoFile) {
+                    m.logo = await readFileAsDataURL(logoFile);
+                } else if (editId && manufacturers.find(x => x.id === editId)?.logo) {
+                    m.logo = manufacturers.find(x => x.id === editId).logo;
+                } else {
+                    m.logo = '';
+                }
+                if (m.logo.length > 700000) return alert('El logo es demasiado grande (máx. ~500 KB). Usa una imagen más pequeña.');
+
+                const now = new Date().toISOString();
+                if (editId) {
+                    m.createdAt = manufacturers.find(x => x.id === editId)?.createdAt || now;
+                    m.updatedAt = now;
+                    await updateDoc(doc(db, "manufacturers", editId), await buildDoc(m));
+                    delete form.dataset.editId;
+                } else {
+                    m.createdAt = now;
+                    m.updatedAt = now;
+                    await addDoc(manufacturersRef, await buildDoc(m));
+                }
+
+                form.reset();
+                logoPreview.innerHTML = '';
+                formContainer.classList.add('hidden');
+                toggleFormBtn.textContent = '📋';
+                toggleFormBtn.title = 'Mostrar formulario';
+            } catch (error) {
+                console.error("Error al procesar almacenamiento:", error);
+                alert("Error al guardar en la base de datos.");
+            }
+        });
+
+        function handleEdit(e) {
+            e.stopPropagation();
+            const id = e.target.dataset.id;
+            const m = manufacturers.find(item => item.id === id);
+            if (m) {
+                document.getElementById('manufacturer').value = m.manufacturer || '';
+                document.getElementById('phone').value = m.phone || '';
+                document.getElementById('email').value = m.email || '';
+                document.getElementById('website').value = m.website || '';
+                document.getElementById('username').value = m.username || '';
+                document.getElementById('password').value = m.password || '';
+                document.getElementById('observations').value = m.observations || ''; 
+                document.getElementById('fileUrl').value = m.fileUrl || '';
+
+                if (m.logo) {
+                    logoPreview.innerHTML = `<img src="${m.logo}" class="logo-preview" alt="Vista previa del logo">`;
+                } else {
+                    logoPreview.innerHTML = '';
+                }
+
+                form.dataset.editId = id;
+                formContainer.classList.remove('hidden');
+                toggleFormBtn.textContent = '📝';
+                toggleFormBtn.title = 'Ocultar formulario';
+                form.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        async function handleDelete(e) {
+            e.stopPropagation();
+            const id = e.target.dataset.id;
+            if (id) {
+                if (confirm('¿Está seguro de que desea eliminar este fabricante de Firebase?')) {
+                    try {
+                        await deleteDoc(doc(db, "manufacturers", id));
+                    } catch (error) {
+                        console.error("Error al eliminar documento: ", error);
+                    }
+                }
+            }
+        }
+
+        // Duplicación preventiva a tabla de Respaldo
+        backupBtn.addEventListener('click', async function() {
+            if (manufacturers.length === 0) return alert('No hay datos en la lista para respaldar.');
+            if (!confirm('¿Desea clonar todos los fabricantes actuales en la tabla alternativa "manufacturers_backup"?')) return;
+            
+            try {
+                backupBtn.disabled = true;
+                backupBtn.textContent = 'RESPALDANDO...';
+                
+                for (const m of manufacturers) {
+                    const clonedData = { iv: m.raw.iv, data: m.raw.data, kv: m.raw.kv, createdAt: m.createdAt || null, updatedAt: m.updatedAt || null, originalId: m.id };
+                    delete clonedData.id; 
+                    clonedData.backupAt = new Date().toISOString();
+                    await addDoc(backupRef, clonedData);
+                }
+                
+                alert('¡Copia paralela guardada exitosamente en Firestore!');
+            } catch (error) {
+                console.error("Fallo de respaldo:", error);
+                alert("Error procesando la copia de seguridad.");
+            } finally {
+                backupBtn.disabled = false;
+                backupBtn.textContent = 'RESPALDO FB';
+            }
+        });
+
+        exportBtn.addEventListener('click', function() {
+            if (manufacturers.length === 0) return alert('No hay fabricantes para exportar');
+            if (!confirm('El CSV se exporta SIN cifrar (incluye usuarios y contraseñas). Guárdalo en un lugar seguro y bórralo cuando ya no lo necesites. ¿Continuar?')) return;
+            try {
+                let csvRows = [];
+                const headers = ['Fabricante', 'Teléfono', 'Email', 'Web', 'Usuario', 'Contraseña', 'Observaciones', 'Logo', 'EnlaceArchivo', 'FechaCreacion', 'FechaModificacion'];
+                csvRows.push(headers.join(','));
+
+                manufacturers.forEach(m => {
+                    let observations = m.observations || '';
+                    observations = `"${observations.replace(/"/g, '""').replace(/\n/g, '\\n')}"`; 
+                    
+                    const row = [
+                        `"${(m.manufacturer || '').replace(/"/g, '""')}"`,
+                        `"${(m.phone || '').replace(/"/g, '""')}"`,
+                        `"${(m.email || '').replace(/"/g, '""')}"`,
+                        `"${(m.website || '').replace(/"/g, '""')}"`,
+                        `"${(m.username || '').replace(/"/g, '""')}"`,
+                        `"${(m.password || '').replace(/"/g, '""')}"`,
+                        observations, 
+                        `"${(m.logo || '')}"`,
+                        `"${(m.fileUrl || '').replace(/"/g, '""')}"`,
+                        `"${(m.createdAt || '')}"`,
+                        `"${(m.updatedAt || '')}"` 
+                    ];
+                    csvRows.push(row.join(','));
+                });
+
+                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'fabricantes.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error("Error al exportar:", error);
+                alert("Error al exportar datos: " + error.message);
+            }
+        });
+
+        importBtn.addEventListener('click', () => importFile.click());
+        importFile.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                try {
+                    const csvData = event.target.result;
+                    const lines = csvData.split(/\r?\n/);
+                    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+                    const data = lines.slice(1).filter(line => line.trim());
+                    const importedManufacturers = [];
+
+                    for (let i = 0; i < data.length; i++) {
+                        const line = data[i];
+                        const values = [];
+                        let current = '';
+                        let inQuotes = false;
+                        for (let j = 0; j < line.length; j++) {
+                            const char = line[j];
+                            if (char === '"') {
+                                if (inQuotes && j + 1 < line.length && line[j+1] === '"') {
+                                    current += '"';
+                                    j++; 
+                                } else {
+                                    inQuotes = !inQuotes;
+                                }
+                            } else if (char === ',' && !inQuotes) {
+                                values.push(current);
+                                current = '';
+                            } else {
+                                current += char;
+                            }
+                        }
+                        if (current || line.endsWith(',')) values.push(current);
+
+                        const newManufacturer = {};
+                        headers.forEach((header, index) => {
+                            let val = values[index] || '';
+                            if (val.startsWith('"') && val.endsWith('"') && val.length > 1) {
+                                val = val.slice(1, -1);
+                            }
+                            val = val.replace(/\\n/g, '\n');
+                            val = val.replace(/__NEWLINE__/g, '\n'); 
+                            
+                            switch(header) {
+                                case 'Fabricante': newManufacturer.manufacturer = val; break;
+                                case 'Teléfono': newManufacturer.phone = val; break;
+                                case 'Email': newManufacturer.email = val; break;
+                                case 'Web': newManufacturer.website = val; break;
+                                case 'Usuario': newManufacturer.username = val; break;
+                                case 'Contraseña': newManufacturer.password = val; break;
+                                case 'Observaciones': newManufacturer.observations = val; break;
+                                case 'Logo': newManufacturer.logo = val; break;
+                                case 'EnlaceArchivo': newManufacturer.fileUrl = val; break;
+                                case 'FechaCreacion': newManufacturer.createdAt = val; break;
+                                case 'FechaModificacion': newManufacturer.updatedAt = val; break;
+                            }
+                        });
+
+                        if (newManufacturer.manufacturer) {
+                            if (!newManufacturer.createdAt || isNaN(new Date(newManufacturer.createdAt).getTime())) {
+                                newManufacturer.createdAt = new Date().toISOString();
+                            }
+                            if (!newManufacturer.updatedAt || isNaN(new Date(newManufacturer.updatedAt).getTime())) {
+                                newManufacturer.updatedAt = new Date().toISOString();
+                            }
+                            importedManufacturers.push(newManufacturer);
+                        }
+                    }
+
+                    if (importedManufacturers.length === 0) {
+                        return alert('No se encontraron datos válidos para importar');
+                    }
+
+                    if (confirm(`Se subirán ${importedManufacturers.length} registros directamente a Firebase. ¿Proceder?`)) {
+                        for (const manufacturerItem of importedManufacturers) {
+                            await addDoc(manufacturersRef, await buildDoc(manufacturerItem));
+                        }
+                        searchInput.value = '';
+                        alert('Importación completada y sincronizada.');
+                    }
+                } catch (error) {
+                    console.error('Error al importar:', error);
+                    alert('Error en formato del archivo CSV: ' + error.message);
+                }
+                importFile.value = '';
+            };
+            reader.readAsText(file);
+        });
+
+        form.addEventListener('reset', () => {
+            delete form.dataset.editId;
+            logoPreview.innerHTML = '';
+        });
+
+        function formatHistoryDate(isoString) {
+            if (!isoString) return 'Fecha desconocida';
+            const date = new Date(isoString);
+            if (isNaN(date.getTime())) return 'Fecha inválida';
+            return date.toLocaleString('es-ES', { 
+                year: 'numeric', month: 'long', day: 'numeric', 
+                hour: '2-digit', minute: '2-digit' 
+            });
+        }
+
+        function displayUpdateHistory() {
+            let historyHtml = '';
+            historyHtml += '<h3 class="history-section-title">Actividad de Fabricantes (Cloud)</h3>';
+            historyHtml += '<ul>';
+
+            const manufacturerActivities = [];
+
+            manufacturers.forEach(m => {
+                if (m.createdAt) {
+                    manufacturerActivities.push({
+                        type: 'created',
+                        date: new Date(m.createdAt),
+                        description: `Fabricante "${esc(m.manufacturer)}" añadido${m.updatedBy && m.updatedAt === m.createdAt ? " por " + esc(m.updatedBy) : ""}.`
+                    });
+                }
+                if (m.updatedAt && m.createdAt && m.updatedAt !== m.createdAt) {
+                    manufacturerActivities.push({
+                        type: 'updated',
+                        date: new Date(m.updatedAt),
+                        description: `Fabricante "${esc(m.manufacturer)}" modificado${m.updatedBy ? " por " + esc(m.updatedBy) : ""}.`
+                    });
+                }
+            });
+
+            manufacturerActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+            if (manufacturerActivities.length > 0) {
+                manufacturerActivities.forEach(activity => {
+                    historyHtml += `
+                        <li>
+                            <strong>${formatHistoryDate(activity.date.toISOString())}</strong>
+                            <span>${activity.description}</span>
+                        </li>
+                    `;
+                });
+            } else {
+                historyHtml += '<li>No hay actividad guardada.</li>';
+            }
+            historyHtml += '</ul>';
+            historyContentDiv.innerHTML = historyHtml;
+        }
+    </script>
+</body>
+</html>
