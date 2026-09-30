@@ -290,6 +290,11 @@
                 </form>
                 <p class="muted">Crea la cuenta aquí y comunica a la persona su email, contraseña inicial y la clave de cifrado por un canal seguro. Si el email ya tenía cuenta, solo se le da acceso. Para retirar el acceso por completo, quita el usuario y cambia después la clave de cifrado.</p>
             </div>
+            <div id="privacySection">
+                <h3 class="history-section-title">Privacidad de emails</h3>
+                <p class="muted">Cifra los emails que aún estén en claro en la base de datos (updatedBy, accesos, configuración). Se ejecuta solo al entrar como master; aquí puedes forzarlo y ver el resultado.</p>
+                <button type="button" class="btn btn-primary" id="privacyBtn">Cifrar emails existentes</button>
+            </div>
             <h3 class="history-section-title" id="keyTitle"></h3>
             <form id="keyForm">
                 <div id="curKeyRow"><label for="curKey">Clave actual</label><input type="password" id="curKey" autocomplete="off"></div>
@@ -531,14 +536,16 @@
             cryptoKey = key; keyVersion = kv;
             if (!unsubData) startData();
             showScreen('app');
-            if (isMaster) migratePrivacy();
+            if (isMaster) migratePrivacy().then(r => { if (r && r.errores.length) alert('No se pudieron cifrar todos los emails:\n' + r.errores.join('\n') + '\n\nRevisa las reglas de Firestore y usa Configuración → Cifrar emails existentes.'); });
         }
-        // Migración única (la ejecuta el master al entrar): quita emails en claro de la base de datos
+        // Migración (la ejecuta el master al entrar o con el botón de Configuración): quita emails en claro de la base de datos
         let migrated = false;
-        async function migratePrivacy() {
-            if (migrated || !cryptoKey) return; migrated = true;
-            const key = cryptoKey;
-            try {
+        async function migratePrivacy(manual = false) {
+            if (!cryptoKey || !isMaster || (migrated && !manual)) return null;
+            migrated = true;
+            const key = cryptoKey, rep = { accesos: 0, registros: 0, respaldos: 0, config: 0, master: 0, errores: [] };
+            const step = async (name, fn) => { try { await fn(); } catch (e) { console.error('Migración', name, e); rep.errores.push(name + ': ' + (e.code || e.message)); } };
+            await step('accesos', async () => {
                 const as = await getDocs(allowedRef);
                 for (const d of as.docs) {
                     const v = d.data();
@@ -546,7 +553,10 @@
                     const em = String(v.email || d.id).toLowerCase(), id = await emailId(em);
                     await setDoc(doc(db, 'allowed', id), { e: await encryptJSON(key, { email: em }), addedAt: v.addedAt || new Date().toISOString() });
                     if (id !== d.id) await deleteDoc(d.ref);
+                    rep.accesos++;
                 }
+            });
+            await step('registros', async () => {
                 const ms = await getDocs(manufacturersRef);
                 for (const d of ms.docs) {
                     const v = d.data();
@@ -554,15 +564,22 @@
                     let upd = { updatedBy: deleteField() };
                     try { const plain = await decryptJSON(key, v); plain.updatedBy = plain.updatedBy || v.updatedBy; upd = { ...(await encryptJSON(key, plain)), updatedBy: deleteField() }; } catch (x) { /* otra clave: solo se borra el email */ }
                     await updateDoc(d.ref, upd);
+                    rep.registros++;
                 }
+            });
+            await step('respaldos', async () => {
                 const bs = await getDocs(backupRef);
-                for (const d of bs.docs) if ('updatedBy' in d.data()) await updateDoc(d.ref, { updatedBy: deleteField() });
-                if (cfg && 'updatedBy' in cfg) await updateDoc(cfgRef, { updatedBy: deleteField() });
-            } catch (e) { console.error('Migración de privacidad:', e); }
-            try {
+                for (const d of bs.docs) if ('updatedBy' in d.data()) { await updateDoc(d.ref, { updatedBy: deleteField() }); rep.respaldos++; }
+            });
+            await step('config', async () => {
+                const cs = await getDoc(cfgRef);
+                if (cs.exists() && 'updatedBy' in cs.data()) { await updateDoc(cfgRef, { updatedBy: deleteField() }); rep.config++; }
+            });
+            await step('setup/status (borra masterEmail a mano en la consola)', async () => {
                 const st = await getDoc(statusRef);
-                if (st.exists() && 'masterEmail' in st.data()) await updateDoc(statusRef, { masterEmail: deleteField() });
-            } catch (e) { console.error('No se pudo quitar masterEmail (bórralo a mano en la consola):', e); }
+                if (st.exists() && 'masterEmail' in st.data()) { await updateDoc(statusRef, { masterEmail: deleteField() }); rep.master++; }
+            });
+            return rep;
         }
         function stopData() {
             if (unsubData) unsubData();
@@ -608,6 +625,7 @@
             settingsForced = forced;
             show('settingsClose', !forced);
             show('usersSection', !forced);
+            show('privacySection', !forced);
             show('curKeyRow', !!cfg);
             $('keyTitle').textContent = cfg ? 'Cambiar clave de cifrado' : 'Crear clave de cifrado';
             $('masterEmail').textContent = currentUser.email;
@@ -615,6 +633,14 @@
             settingsModal.style.display = 'block';
             if (!forced) loadUsers();
         }
+        $('privacyBtn').addEventListener('click', async () => {
+            const btn = $('privacyBtn'); btn.disabled = true; btn.textContent = 'Procesando…';
+            try {
+                const r = await migratePrivacy(true);
+                if (!r) return alert('Solo el master con la clave desbloqueada puede hacerlo.');
+                alert(`Emails cifrados/eliminados en claro:\n· accesos: ${r.accesos}\n· registros: ${r.registros}\n· respaldos: ${r.respaldos}\n· configuración: ${r.config}\n· estado master: ${r.master}` + (r.errores.length ? `\n\nErrores:\n${r.errores.join('\n')}` : '\n\nSin errores.'));
+            } finally { btn.disabled = false; btn.textContent = 'Cifrar emails existentes'; }
+        });
         $('settingsBtn').addEventListener('click', () => openSettings(false));
         $('settingsClose').addEventListener('click', () => { settingsModal.style.display = 'none'; });
         window.addEventListener('click', ev => { if (ev.target === settingsModal && !settingsForced) settingsModal.style.display = 'none'; });
@@ -913,7 +939,7 @@
                 if (editId) {
                     m.createdAt = manufacturers.find(x => x.id === editId)?.createdAt || now;
                     m.updatedAt = now;
-                    await updateDoc(doc(db, "manufacturers", editId), await buildDoc(m));
+                    await updateDoc(doc(db, "manufacturers", editId), { ...(await buildDoc(m)), updatedBy: deleteField() });
                     delete form.dataset.editId;
                 } else {
                     m.createdAt = now;
