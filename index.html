@@ -244,12 +244,13 @@
 
     <div id="authOverlay" class="overlay uh"><div class="auth-card">
         <h2>Gestión de fabricantes</h2>
-        <div class="auth-tabs"><button type="button" id="tabLogin" class="active">Entrar</button><button type="button" id="tabRegister">Crear cuenta</button></div>
-        <div id="authHint" class="auth-hint"></div>
+        <div class="auth-hint">El acceso lo concede el usuario master.</div>
         <form id="authForm">
             <label for="authEmail">Email</label><input type="email" id="authEmail" required autocomplete="username">
             <label for="authPass">Contraseña</label><input type="password" id="authPass" required autocomplete="current-password">
-            <div id="authPass2Row" class="uh"><label for="authPass2">Repite la contraseña</label><input type="password" id="authPass2" autocomplete="new-password"></div>
+            <label for="authKey">Clave de cifrado</label><input type="password" id="authKey" autocomplete="off">
+            <p class="muted" style="margin:4px 0 0;font-size:12px">Si eres el master y aún no has creado la clave, déjala vacía.</p>
+            <label class="chk"><input type="checkbox" id="authRemember"> Mantener desbloqueado en este dispositivo</label>
             <div id="authError" class="err"></div>
             <button class="btn btn-primary" id="authSubmit" style="width:100%">Entrar</button>
             <div style="text-align:center"><button type="button" class="link-btn" id="resetPass">¿Olvidaste la contraseña?</button></div>
@@ -285,9 +286,10 @@
                 <ul id="usersList"></ul>
                 <form id="addUserForm" style="display:flex;gap:8px">
                     <input type="email" id="newUserEmail" placeholder="email@ejemplo.com" required>
-                    <button class="btn btn-primary" style="white-space:nowrap">Dar acceso</button>
+                    <input type="text" id="newUserPass" placeholder="Contraseña inicial (mín. 8)" minlength="8" required autocomplete="off">
+                    <button class="btn btn-primary" style="white-space:nowrap">Crear usuario</button>
                 </form>
-                <p class="muted">La persona debe crear su cuenta en la pantalla de acceso con ese mismo email. Para retirar el acceso por completo, quita el usuario y cambia después la clave de cifrado.</p>
+                <p class="muted">Crea la cuenta aquí y comunica a la persona su email, contraseña inicial y la clave de cifrado por un canal seguro (puede cambiar la contraseña con «¿Olvidaste la contraseña?»). Si el email ya tenía cuenta, solo se le da acceso. Para retirar el acceso por completo, quita el usuario y cambia después la clave de cifrado.</p>
             </div>
             <h3 class="history-section-title" id="keyTitle"></h3>
             <form id="keyForm">
@@ -302,7 +304,7 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, getDoc, getDocs, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
@@ -427,39 +429,20 @@
             'auth/network-request-failed': 'Sin conexión con Firebase.',
             'auth/operation-not-allowed': 'Activa el acceso con email/contraseña en Firebase Authentication.'
         };
-        let authMode = 'login';
-        function setAuthMode(m) {
-            authMode = m;
-            const r = m === 'register';
-            $('tabLogin').classList.toggle('active', !r);
-            $('tabRegister').classList.toggle('active', r);
-            show('authPass2Row', r);
-            $('authSubmit').textContent = r ? 'Crear cuenta' : 'Entrar';
-            $('authPass').autocomplete = r ? 'new-password' : 'current-password';
-            $('authError').textContent = '';
-        }
-        $('tabLogin').addEventListener('click', () => setAuthMode('login'));
-        $('tabRegister').addEventListener('click', () => setAuthMode('register'));
-        async function refreshAuthHint() {
-            try {
-                const s = await getDoc(statusRef);
-                $('authHint').textContent = s.exists() ? '' : 'Aún no hay ninguna cuenta: la primera que crees será la cuenta master (administradora).';
-                if (!s.exists()) setAuthMode('register');
-            } catch (e) { /* sin pista */ }
-        }
+        let pendingKey = null, pendingRemember = false, authNotice = '';
         $('authForm').addEventListener('submit', async e => {
             e.preventDefault();
             const em = $('authEmail').value.trim(), pw = $('authPass').value, err = $('authError');
-            err.textContent = '';
+            err.style.color = ''; err.textContent = '';
+            pendingKey = $('authKey').value || null;
+            pendingRemember = $('authRemember').checked;
             try {
-                if (authMode === 'register') {
-                    if (pw.length < 8) return err.textContent = 'La contraseña debe tener al menos 8 caracteres.';
-                    if (pw !== $('authPass2').value) return err.textContent = 'Las contraseñas no coinciden.';
-                    await createUserWithEmailAndPassword(auth, em, pw);
-                } else {
-                    await signInWithEmailAndPassword(auth, em, pw);
-                }
-            } catch (ex) { err.textContent = AUTH_ERR[ex.code] || ('Error: ' + ex.code); }
+                await signInWithEmailAndPassword(auth, em, pw);
+                $('authPass').value = ''; $('authKey').value = '';
+            } catch (ex) {
+                pendingKey = null;
+                err.textContent = AUTH_ERR[ex.code] || ('Error: ' + ex.code);
+            }
         });
         $('resetPass').addEventListener('click', async () => {
             const em = $('authEmail').value.trim(), err = $('authError');
@@ -471,7 +454,7 @@
         // ---------- Sesión ----------
         onAuthStateChanged(auth, user => {
             teardown();
-            if (!user) { currentUser = null; isMaster = false; showScreen('auth'); refreshAuthHint(); return; }
+            if (!user) { currentUser = null; isMaster = false; showScreen('auth'); $('authError').style.color = ''; $('authError').textContent = authNotice; authNotice = ''; return; }
             currentUser = user;
             startSession(user);
         });
@@ -509,7 +492,7 @@
 
         async function handleCfg(snap) {
             if (!snap.exists()) {
-                cfg = null;
+                cfg = null; pendingKey = null;
                 stopData();
                 if (isMaster) { showScreen('none'); openSettings(true); }
                 else showBlock('Configuración pendiente', 'El usuario master aún no ha creado la clave de cifrado. Vuelve a intentarlo más tarde.');
@@ -522,6 +505,20 @@
                 return;
             }
             if (cryptoKey) stopData(); // el master cambió la clave
+            if (pendingKey) {
+                const pk = pendingKey, remember = pendingRemember;
+                pendingKey = null;
+                try {
+                    const key = await deriveKey(pk, unb64(cfg.salt));
+                    await verifyKey(key);
+                    if (remember) await keySet({ uid: currentUser.uid, kv: cfg.keyVersion, key }); else await keyDel();
+                    setKey(key, cfg.keyVersion);
+                } catch (x) {
+                    authNotice = 'Clave de cifrado incorrecta.';
+                    await logout();
+                }
+                return;
+            }
             const st = await keyGet();
             if (st && st.uid === currentUser.uid && st.kv === cfg.keyVersion) {
                 try { await verifyKey(st.key); setKey(st.key, cfg.keyVersion); return; } catch (e) { await keyDel(); }
@@ -609,16 +606,35 @@
                 });
             } catch (e) { ul.innerHTML = '<li>No se pudo cargar la lista de usuarios.</li>'; }
         }
+        // Crea la cuenta en una segunda instancia de Firebase para no cerrar la sesión del master
+        async function createAccount(email, pass) {
+            const sec = initializeApp(firebaseConfig, 'alta-' + Date.now());
+            try {
+                const a2 = getAuth(sec);
+                await createUserWithEmailAndPassword(a2, email, pass);
+                await signOut(a2);
+            } finally { await deleteApp(sec); }
+        }
         $('addUserForm').addEventListener('submit', async e => {
             e.preventDefault();
-            const em = $('newUserEmail').value.trim().toLowerCase();
+            const em = $('newUserEmail').value.trim().toLowerCase(), pw = $('newUserPass').value;
             if (!em) return;
             if (em === currentUser.email.toLowerCase()) return alert('Ese es tu propio email (ya eres master).');
+            if (pw.length < 8) return alert('La contraseña inicial debe tener al menos 8 caracteres.');
+            const btn = e.submitter; if (btn) btn.disabled = true;
+            let existed = false;
             try {
+                try { await createAccount(em, pw); }
+                catch (ex) {
+                    if (ex.code === 'auth/email-already-in-use') existed = true;
+                    else return alert(AUTH_ERR[ex.code] || ('No se pudo crear la cuenta: ' + ex.code));
+                }
                 await setDoc(doc(db, 'allowed', em), { email: em, addedAt: new Date().toISOString(), addedBy: currentUser.email });
-                $('newUserEmail').value = '';
+                $('newUserEmail').value = ''; $('newUserPass').value = '';
                 loadUsers();
+                alert(existed ? 'Ese email ya tenía cuenta: se le ha dado acceso (mantiene su contraseña).' : 'Usuario creado. Comunícale la contraseña inicial y la clave de cifrado.');
             } catch (ex) { alert('No se pudo dar acceso.'); }
+            finally { if (btn) btn.disabled = false; }
         });
 
         async function createKey(pass) {
