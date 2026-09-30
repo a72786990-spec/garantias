@@ -253,7 +253,6 @@
             <label class="chk"><input type="checkbox" id="authRemember"> Mantener desbloqueado en este dispositivo</label>
             <div id="authError" class="err"></div>
             <button class="btn btn-primary" id="authSubmit" style="width:100%">Entrar</button>
-            <div style="text-align:center"><button type="button" class="link-btn" id="resetPass">¿Olvidaste la contraseña?</button></div>
         </form>
     </div></div>
 
@@ -289,7 +288,7 @@
                     <input type="text" id="newUserPass" placeholder="Contraseña inicial (mín. 8)" minlength="8" required autocomplete="off">
                     <button class="btn btn-primary" style="white-space:nowrap">Crear usuario</button>
                 </form>
-                <p class="muted">Crea la cuenta aquí y comunica a la persona su email, contraseña inicial y la clave de cifrado por un canal seguro (puede cambiar la contraseña con «¿Olvidaste la contraseña?»). Si el email ya tenía cuenta, solo se le da acceso. Para retirar el acceso por completo, quita el usuario y cambia después la clave de cifrado.</p>
+                <p class="muted">Crea la cuenta aquí y comunica a la persona su email, contraseña inicial y la clave de cifrado por un canal seguro. Si el email ya tenía cuenta, solo se le da acceso. Para retirar el acceso por completo, quita el usuario y cambia después la clave de cifrado.</p>
             </div>
             <h3 class="history-section-title" id="keyTitle"></h3>
             <form id="keyForm">
@@ -305,8 +304,8 @@
 
     <script type="module">
         import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, getDoc, getDocs, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, getDoc, getDocs, setDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDMMs4frAQxoOw1R3fO62iarP95LdTqvSA",
@@ -389,8 +388,14 @@
         async function buildDoc(m) {
             const plain = {};
             FIELDS.forEach(f => plain[f] = m[f] || '');
+            plain.updatedBy = currentUser.email; // va dentro del bloque cifrado
             const e = await encryptJSON(cryptoKey, plain);
-            return { ...e, kv: keyVersion, createdAt: m.createdAt, updatedAt: m.updatedAt, updatedBy: currentUser.email };
+            return { ...e, kv: keyVersion, createdAt: m.createdAt, updatedAt: m.updatedAt };
+        }
+        // ID opaco (SHA-256) para la lista de accesos: el email no aparece en la base de datos
+        async function emailId(email) {
+            const h = await crypto.subtle.digest('SHA-256', te.encode('garantias|' + String(email).trim().toLowerCase()));
+            return Array.from(new Uint8Array(h), x => x.toString(16).padStart(2, '0')).join('');
         }
 
         // Clave "recordada" en este dispositivo: CryptoKey no exportable en IndexedDB
@@ -444,12 +449,6 @@
                 err.textContent = AUTH_ERR[ex.code] || ('Error: ' + ex.code);
             }
         });
-        $('resetPass').addEventListener('click', async () => {
-            const em = $('authEmail').value.trim(), err = $('authError');
-            if (!em) return err.textContent = 'Escribe tu email y vuelve a pulsar.';
-            try { await sendPasswordResetEmail(auth, em); err.style.color = '#2e7d32'; err.textContent = 'Si el email existe, recibirás un enlace para restablecer la contraseña.'; }
-            catch (ex) { err.style.color = ''; err.textContent = AUTH_ERR[ex.code] || ('Error: ' + ex.code); }
-        });
 
         // ---------- Sesión ----------
         onAuthStateChanged(auth, user => {
@@ -474,7 +473,7 @@
                 let st = await getDoc(statusRef);
                 if (!st.exists()) {
                     // El primer usuario autenticado se convierte en master (las reglas solo permiten crearlo una vez)
-                    try { await setDoc(statusRef, { masterUid: user.uid, masterEmail: (user.email || '').toLowerCase(), createdAt: new Date().toISOString() }); } catch (e) { /* otro llegó antes */ }
+                    try { await setDoc(statusRef, { masterUid: user.uid, createdAt: new Date().toISOString() }); } catch (e) { /* otro llegó antes */ }
                     st = await getDoc(statusRef);
                 }
                 isMaster = st.exists() && st.data().masterUid === user.uid;
@@ -532,6 +531,38 @@
             cryptoKey = key; keyVersion = kv;
             if (!unsubData) startData();
             showScreen('app');
+            if (isMaster) migratePrivacy();
+        }
+        // Migración única (la ejecuta el master al entrar): quita emails en claro de la base de datos
+        let migrated = false;
+        async function migratePrivacy() {
+            if (migrated || !cryptoKey) return; migrated = true;
+            const key = cryptoKey;
+            try {
+                const as = await getDocs(allowedRef);
+                for (const d of as.docs) {
+                    const v = d.data();
+                    if (v.e) continue;
+                    const em = String(v.email || d.id).toLowerCase(), id = await emailId(em);
+                    await setDoc(doc(db, 'allowed', id), { e: await encryptJSON(key, { email: em }), addedAt: v.addedAt || new Date().toISOString() });
+                    if (id !== d.id) await deleteDoc(d.ref);
+                }
+                const ms = await getDocs(manufacturersRef);
+                for (const d of ms.docs) {
+                    const v = d.data();
+                    if (!('updatedBy' in v)) continue;
+                    let upd = { updatedBy: deleteField() };
+                    try { const plain = await decryptJSON(key, v); plain.updatedBy = plain.updatedBy || v.updatedBy; upd = { ...(await encryptJSON(key, plain)), updatedBy: deleteField() }; } catch (x) { /* otra clave: solo se borra el email */ }
+                    await updateDoc(d.ref, upd);
+                }
+                const bs = await getDocs(backupRef);
+                for (const d of bs.docs) if ('updatedBy' in d.data()) await updateDoc(d.ref, { updatedBy: deleteField() });
+                if (cfg && 'updatedBy' in cfg) await updateDoc(cfgRef, { updatedBy: deleteField() });
+            } catch (e) { console.error('Migración de privacidad:', e); }
+            try {
+                const st = await getDoc(statusRef);
+                if (st.exists() && 'masterEmail' in st.data()) await updateDoc(statusRef, { masterEmail: deleteField() });
+            } catch (e) { console.error('No se pudo quitar masterEmail (bórralo a mano en la consola):', e); }
         }
         function stopData() {
             if (unsubData) unsubData();
@@ -558,8 +589,8 @@
                 const seq = ++snapSeq, key = cryptoKey, list = [];
                 for (const d of snap.docs) {
                     const raw = d.data();
-                    const meta = { id: d.id, createdAt: raw.createdAt, updatedAt: raw.updatedAt, updatedBy: raw.updatedBy, raw };
-                    try { list.push({ ...(await decryptJSON(key, raw)), ...meta }); }
+                    const meta = { id: d.id, createdAt: raw.createdAt, updatedAt: raw.updatedAt, raw };
+                    try { const dec = await decryptJSON(key, raw); list.push({ ...dec, ...meta, updatedBy: dec.updatedBy || raw.updatedBy }); }
                     catch (e) { list.push({ ...meta, manufacturer: '⚠ Registro no descifrable (clave distinta)', broken: true }); }
                 }
                 if (seq !== snapSeq || key !== cryptoKey) return;
@@ -591,16 +622,23 @@
         async function loadUsers() {
             const ul = $('usersList');
             try {
-                const s = await getDocs(allowedRef);
-                const emails = s.docs.map(d => d.id).sort();
-                ul.innerHTML = emails.length ? '' : '<li>Aún no has dado acceso a nadie.</li>';
-                emails.forEach(em => {
+                const snap = await getDocs(allowedRef);
+                const rows = [];
+                for (const d of snap.docs) {
+                    const v = d.data();
+                    let em = v.email || d.id;
+                    if (v.e) { try { em = (await decryptJSON(cryptoKey, v.e)).email; } catch (x) { em = '⚠ (no descifrable)'; } }
+                    rows.push({ id: d.id, em });
+                }
+                rows.sort((x, y) => x.em.localeCompare(y.em));
+                ul.innerHTML = rows.length ? '' : '<li>Aún no has dado acceso a nadie.</li>';
+                rows.forEach(r => {
                     const li = document.createElement('li');
                     li.className = 'user-li';
-                    li.innerHTML = `<span>${esc(em)}</span><button class="action-btn" title="Quitar acceso">🗑️</button>`;
+                    li.innerHTML = `<span>${esc(r.em)}</span><button class="action-btn" title="Quitar acceso">🗑️</button>`;
                     li.querySelector('button').addEventListener('click', async () => {
-                        if (!confirm(`¿Quitar el acceso a ${em}?`)) return;
-                        try { await deleteDoc(doc(db, 'allowed', em)); loadUsers(); } catch (e) { alert('No se pudo quitar el acceso.'); }
+                        if (!confirm(`¿Quitar el acceso a ${r.em}?`)) return;
+                        try { await deleteDoc(doc(db, 'allowed', r.id)); loadUsers(); } catch (e) { alert('No se pudo quitar el acceso.'); }
                     });
                     ul.appendChild(li);
                 });
@@ -629,7 +667,7 @@
                     if (ex.code === 'auth/email-already-in-use') existed = true;
                     else return alert(AUTH_ERR[ex.code] || ('No se pudo crear la cuenta: ' + ex.code));
                 }
-                await setDoc(doc(db, 'allowed', em), { email: em, addedAt: new Date().toISOString(), addedBy: currentUser.email });
+                await setDoc(doc(db, 'allowed', await emailId(em)), { e: await encryptJSON(cryptoKey, { email: em }), addedAt: new Date().toISOString() });
                 $('newUserEmail').value = ''; $('newUserPass').value = '';
                 loadUsers();
                 alert(existed ? 'Ese email ya tenía cuenta: se le ha dado acceso (mantiene su contraseña).' : 'Usuario creado. Comunícale la contraseña inicial y la clave de cifrado.');
@@ -640,7 +678,7 @@
         async function createKey(pass) {
             const salt = crypto.getRandomValues(new Uint8Array(16));
             const key = await deriveKey(pass, salt);
-            const data = { salt: b64(salt), verifier: await encryptJSON(key, { check: CHECK }), keyVersion: 1, updatedAt: new Date().toISOString(), updatedBy: currentUser.email };
+            const data = { salt: b64(salt), verifier: await encryptJSON(key, { check: CHECK }), keyVersion: 1, updatedAt: new Date().toISOString() };
             cryptoKey = key; keyVersion = 1; cfg = data; // antes de escribir, para que el listener no bloquee al master
             try { await setDoc(cfgRef, data); }
             catch (e) { cryptoKey = null; keyVersion = null; cfg = null; throw e; }
@@ -649,8 +687,8 @@
         async function changeKey(currentPass, newPass) {
             const oldKey = await deriveKey(currentPass, unb64(cfg.salt));
             try { await verifyKey(oldKey); } catch (e) { throw new Error('La clave actual no es correcta.'); }
-            const snap = await getDocs(manufacturersRef);
-            if (snap.size + 1 > 500) throw new Error('Hay demasiados registros para recifrar de una sola vez (máx. 499).');
+            const snap = await getDocs(manufacturersRef), asnap = await getDocs(allowedRef);
+            if (snap.size + asnap.size + 1 > 500) throw new Error('Hay demasiados registros para recifrar de una sola vez (máx. 499).');
             const newSalt = crypto.getRandomValues(new Uint8Array(16));
             const newKey = await deriveKey(newPass, newSalt);
             const newKv = cfg.keyVersion + 1, prevKey = cryptoKey, prevKv = keyVersion;
@@ -661,6 +699,7 @@
                     const cs = await tx.get(cfgRef);
                     if (!cs.exists() || cs.data().keyVersion !== prevKv) throw new Error('La clave cambió mientras tanto. Recarga la página.');
                     const docs = await Promise.all(snap.docs.map(d => tx.get(d.ref)));
+                    const adocs = await Promise.all(asnap.docs.map(d => tx.get(d.ref)));
                     const updates = [];
                     for (const d of docs) {
                         if (!d.exists()) continue;
@@ -669,8 +708,15 @@
                         catch (e) { throw new Error('Hay registros que no se pueden descifrar con la clave actual. Elimínalos antes de cambiar la clave.'); }
                         updates.push([d.ref, { ...(await encryptJSON(newKey, plain)), kv: newKv }]);
                     }
+                    for (const d of adocs) {
+                        if (!d.exists() || !d.data().e) continue;
+                        let plain;
+                        try { plain = await decryptJSON(oldKey, d.data().e); }
+                        catch (e) { throw new Error('Hay accesos que no se pueden descifrar con la clave actual.'); }
+                        updates.push([d.ref, { e: await encryptJSON(newKey, plain) }]);
+                    }
                     updates.forEach(([ref, data]) => tx.update(ref, data));
-                    tx.set(cfgRef, { salt: b64(newSalt), verifier, keyVersion: newKv, updatedAt: new Date().toISOString(), updatedBy: currentUser.email });
+                    tx.set(cfgRef, { salt: b64(newSalt), verifier, keyVersion: newKv, updatedAt: new Date().toISOString() });
                 });
             } catch (e) { cryptoKey = prevKey; keyVersion = prevKv; throw e; }
             if (await keyGet()) await keySet({ uid: currentUser.uid, kv: newKv, key: newKey });
